@@ -3,6 +3,7 @@
  */
 require("./functions.js");
 require('dotenv').config();
+require('ejs');
 const express = require("express");
 const session = require("express-session")
 const app = express();
@@ -10,7 +11,8 @@ const Joi = require("joi");
 const fs = require("fs");
 const MongoStore = require('connect-mongo');
 const bcrypt = require("bcrypt");
-
+const {func} = require("joi");
+const {ObjectId} = require("mongodb");
 const numberOfRandoms = 5;
 
 /*
@@ -26,6 +28,10 @@ const mdb_password = process.env.MONGODB_PASSWORD;
 const mdb_dbName = process.env.MONGODB_DATABASE;
 const mdb_secret = process.env.MONGODB_SESSION_SECRET;
 
+/*
+    Use EJS to render.
+ */
+app.set('view engine', 'ejs');
 /*
     TODO: Static calls.
  */
@@ -43,6 +49,7 @@ app.use(express.json());
 
 /*
     TODO: Allows Body Parser.
+    Middleware.
 */
 app.use(express.urlencoded({ extended: true }));
 
@@ -58,6 +65,7 @@ let mongoStore = MongoStore.create({
 
 /*
     TODO: Session Options.
+    Middleware.
  */
 app.use(session({
     secret: node_session_secret,
@@ -67,55 +75,52 @@ app.use(session({
 }));
 
 /*
+    TODO: FUNCTIONS AREA
+ */
+
+function isValidSession(req) {
+    return req.session.authenticated;
+}
+
+/*
+    TODO: Middleware method, chain like function.
+ */
+function sessionValidation(req, res, next) {
+    if (isValidSession(req))
+        next();
+    else
+        res.redirect('/');
+}
+
+/*
+    TODO: GET METHODS
     TODO: Landing Page.
  */
 app.get('/', (req, res) => {
-    let html;
-    if (req.session.authenticated) {
+    if (isValidSession(req))
         res.redirect('/main');
-    } else {
-        html = fs.readFileSync("./app/login.html", "utf-8");
-    }
-    res.send(html);
+    else
+        res.render('login', {error: 0});
 });
 
 /*
     TODO: Main Page, the "sessioned" page.
  */
+app.use('/main', sessionValidation);
 app.get('/main', (req, res) => {
-    let html;
-    /*
-        TODO: Split em to acquire the session username.
-     */
-    if (req.session.authenticated) {
-        html = fs.readFileSync("./app/main.txt", "utf-8");
-        html+= req.session.username;
-        html+= fs.readFileSync("./app/main2.txt", "utf-8")
-        res.send(html);
-    } else {
-        res.redirect("/");
-    }
+        res.render('main', {name: req.session.username});
 });
 
 /*
     TODO: Sign Up page.
  */
 app.get('/sign-up', (req, res) => {
-    if (req.session.authenticated) {
+    if (isValidSession(req))
         res.redirect('/main');
-        return;
-    }
-    let html = fs.readFileSync("./app/signUp.html", "utf-8");
-    res.send(html);
+    else
+        res.render('signUp', {error: false});
 });
 
-/*
-    TODO: Username is taken.
- */
-app.get('/signUpFailure', (req, res) => {
-    let html = fs.readFileSync("./app/signUpFailed.html", "utf-8");
-    res.send(html);
-});
 
 /*
     TODO: The Furry Pictures in their own page.
@@ -123,17 +128,23 @@ app.get('/signUpFailure', (req, res) => {
 app.get('/furry/:pawbID', (req, res) => {
     let pawID =req.params.pawbID;
 
-    console.log(pawID);
-    if (pawID == 1)
-        res.send("<body style='background-image: url(/img/boykisser.jpg); background-size: cover; background-position: center'><h1>The BoyKisser<br></h1></body>");
-    else if (pawID == 2)
-        res.send("<body style='background-image: url(/img/cuteFleurSketch.jpg); background-size: cover; background-position: center'><h1>Aurora<br></h1></body>");
-    else if (pawID == 3)
-        res.send("<body style='background-image: url(/img/iconicfluff.jpg); background-size: cover; background-position: center'><h1>Fluke<br></h1></body>");
-    else if (pawID == 4)
-        res.send("<body style='background-image: url(/img/peace.png); background-size: cover; background-position: center'><h1>Laura<br></h1></body>");
-    else if (pawID == 5)
-        res.send("<body style='background-image: url(/img/sleepingGamer.jpg); background-size: cover; background-position: center'><h1>A Sleeping Laura<br></h1></body>");
+    switch (pawID) {
+        case "1":
+            res.send("<body style='background-image: url(/img/boykisser.jpg); background-size: cover; background-position: center'><h1>The BoyKisser<br></h1></body>");
+            return;
+        case "2":
+            res.send("<body style='background-image: url(/img/cuteFleurSketch.jpg); background-size: cover; background-position: center'><h1>Aurora<br></h1></body>");
+            return;
+        case "3":
+            res.send("<body style='background-image: url(/img/iconicfluff.jpg); background-size: cover; background-position: center'><h1>Fluke<br></h1></body>");
+            return;
+        case "4":
+            res.send("<body style='background-image: url(/img/peace.png); background-size: cover; background-position: center'><h1>Laura<br></h1></body>");
+            return;
+        case "5":
+            res.send("<body style='background-image: url(/img/sleepingGamer.jpg); background-size: cover; background-position: center'><h1>A Sleeping Laura<br></h1></body>");
+            return;
+    }
 });
 
 /*
@@ -156,8 +167,7 @@ app.post('/logging-in', async (req, res) => {
     const __users = await usrCollection.find({username: username}).project({username: 1, password: 1, _id: 1}).toArray();
 
     if (__users.length !== 1) {
-        let html = fs.readFileSync('./app/unknownUsername.html', "utf-8");
-        res.send(html);
+        res.render('login', {error: 1});
         return;
     }
 
@@ -170,12 +180,37 @@ app.post('/logging-in', async (req, res) => {
     }
 
     else {
-        let html = fs.readFileSync('./app/invalidPassword.html', "utf-8");
-        res.send(html);
+        res.render('login', {error: 2});
         return;
     }
 });
 
+app.get('/allFluffs', (req, res) => {
+    res.render('fluffs');
+})
+app.use('/admin', sessionValidation);
+app.get('/admin', async (req, res) => {
+        const curr = await getUser(req.session.username);
+        if (curr.rank === "admin") {
+            const __users = await usrCollection.find().project({username: 1, password: 1, _id: 1, rank: 1}).toArray();
+            res.render("admin", {__restrictOption: false, curr: curr, users: __users});
+        } else {
+            res.render("admin", {__restrictOption: true, curr: curr, users: []});
+        }
+})
+
+app.get('/admin/:options/:_id', async (req, res) => {
+    let id = req.params._id;
+    let modifyOption = req.params.options;
+    const filter = {_id: new ObjectId(id)};
+
+    if (modifyOption === "promote") {
+        await usrCollection.updateOne(filter, {$set: {rank: "admin"}});
+    } else if (modifyOption === "demote") {
+        await usrCollection.updateOne(filter, {$set: {rank: "user"}});
+    }
+    res.redirect('/admin');
+})
 /*
     TODO: Method on sign up.
  */
@@ -199,21 +234,21 @@ app.post('/creatingUser', async (req, res) => {
         return;
     }
 
-    const __user = await usrCollection.findOne({username: username});
     let hashedPWD = await bcrypt.hash(password, numberOfRandoms);
-    /*
-        TODO: If user exists.
-     */
-    if (__user !== null) {
-        res.redirect('/signUpFailure');
-        return;
-    }
 
     /* Add to database. :) */
-    await usrCollection.insertOne({username: username, password: hashedPWD});
-
-    let html = fs.readFileSync('./app/signUpSuccess.html', "utf-8");
-    res.send(html);
+    try {
+        await usrCollection.insertOne({username: username, password: hashedPWD, rank: "user"});
+    } catch (error) {
+        res.render('signUp', {error: true});
+        return;
+    }
+    /* TODO: Make usernames unique. */
+    const __pkUsernameExists = await usrCollection.indexExists('username_1');
+    if (!__pkUsernameExists) {
+        await usrCollection.createIndex({ username: 1 }, { unique: true });
+    }
+    res.render('signUpSuccess');
 })
 
 /*
@@ -228,8 +263,9 @@ app.post('/loggingOut', async (req, res) => {
     TODO: Error 404.
  */
 app.get("*", (req, res) => {
-    let html = fs.readFileSync("./app/404.html", "utf-8");
-    res.send(html);
+    // let html = fs.readFileSync("./app/404.html", "utf-8");
+    res.render('404');
+    // res.send(html);
 })
 
 /*
@@ -238,3 +274,11 @@ app.get("*", (req, res) => {
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
+
+function getUser(key) {
+    return usrCollection.findOne({username: key});
+}
+
+function getUser2(token) {
+    return usrCollection.findOne({_id: token});
+}

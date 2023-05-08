@@ -8,7 +8,6 @@ const express = require("express");
 const session = require("express-session")
 const app = express();
 const Joi = require("joi");
-const fs = require("fs");
 const MongoStore = require('connect-mongo');
 const bcrypt = require("bcrypt");
 const {func} = require("joi");
@@ -79,6 +78,7 @@ app.use(session({
  */
 
 function isValidSession(req) {
+    console.log((req.session.cookie.maxAge / 60) / 1000);
     return req.session.authenticated;
 }
 
@@ -175,6 +175,7 @@ app.post('/logging-in', async (req, res) => {
         req.session.authenticated = true;
         req.session.username = username;
         req.session.cookie.maxAge = logOutWhen;
+        console.log("Cry");
         res.redirect('/main');
         return;
     }

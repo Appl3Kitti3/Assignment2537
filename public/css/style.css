@@ -4,12 +4,6 @@ body, html {
     padding: 0;
 }
 
-#errorWrapper {
-    background-image: url("../img/TrulyAnError.jpg");
-    color: white;
-    height: 100%;
-}
-
 #bg {
     background-image: url("../img/iconicfluff.jpg") !important;
     background-size: cover;

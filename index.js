@@ -1,16 +1,14 @@
 /*
     TODO: Declare Constants.
  */
-require("./functions.js");
+const {isValidSession, sessionValidation, isAuthorized} = require("./functions.js");
 require('dotenv').config();
 require('ejs');
 const express = require("express");
 const session = require("express-session")
 const app = express();
 const Joi = require("joi");
-const MongoStore = require('connect-mongo');
 const bcrypt = require("bcrypt");
-const {func} = require("joi");
 const {ObjectId} = require("mongodb");
 const numberOfRandoms = 5;
 
@@ -21,16 +19,11 @@ const logOutWhen = 60 * 60 * 1000; //expires after 1 hour  (hours * minutes * se
 const port = process.env.PORT || 8000;
 const node_session_secret = process.env.NODE_SESSION_SECRET;
 
-const mdb_host = process.env.MONGODB_HOST;
-const mdb_user = process.env.MONGODB_USER;
-const mdb_password = process.env.MONGODB_PASSWORD;
-const mdb_dbName = process.env.MONGODB_DATABASE;
-const mdb_secret = process.env.MONGODB_SESSION_SECRET;
-
 /*
     Use EJS to render.
  */
 app.set('view engine', 'ejs');
+
 /*
     TODO: Static calls.
  */
@@ -39,10 +32,9 @@ app.use("/css", express.static("./public/css"));
 app.use("/img", express.static("./public/img"));
 
 /*
-    TODO: Get MONGODB Database.
+    TODO: Connection Js Modules.
  */
-let {database} = include('connection');
-const usrCollection = database.db(mdb_dbName).collection('users');
+const {usrCollection, mongoStore, getUser} = include('connection');
 
 app.use(express.json());
 
@@ -51,16 +43,6 @@ app.use(express.json());
     Middleware.
 */
 app.use(express.urlencoded({ extended: true }));
-
-/*
-    TODO: MongoDB Options.
- */
-let mongoStore = MongoStore.create({
-    mongoUrl: `mongodb+srv://${mdb_user}:${mdb_password}@${mdb_host}/sessions`,
-    crypto: {
-        secret: mdb_secret
-    }
-});
 
 /*
     TODO: Session Options.
@@ -72,25 +54,6 @@ app.use(session({
     saveUninitialized: false,
     resave: true
 }));
-
-/*
-    TODO: FUNCTIONS AREA
- */
-
-function isValidSession(req) {
-    console.log((req.session.cookie.maxAge / 60) / 1000);
-    return req.session.authenticated;
-}
-
-/*
-    TODO: Middleware method, chain like function.
- */
-function sessionValidation(req, res, next) {
-    if (isValidSession(req))
-        next();
-    else
-        res.redirect('/');
-}
 
 /*
     TODO: GET METHODS
@@ -121,7 +84,6 @@ app.get('/sign-up', (req, res) => {
         res.render('signUp', {error: false});
 });
 
-
 /*
     TODO: The Furry Pictures in their own page.
  */
@@ -130,22 +92,55 @@ app.get('/furry/:pawbID', (req, res) => {
 
     switch (pawID) {
         case "1":
-            res.send("<body style='background-image: url(/img/boykisser.jpg); background-size: cover; background-position: center'><h1>The BoyKisser<br></h1></body>");
+            res.render('separateFur', {picture: "/img/boykisser.jpg"});
             return;
         case "2":
-            res.send("<body style='background-image: url(/img/cuteFleurSketch.jpg); background-size: cover; background-position: center'><h1>Aurora<br></h1></body>");
+            res.render('separateFur', {picture: "/img/cuteFleurSketch.jpg"});
             return;
         case "3":
-            res.send("<body style='background-image: url(/img/iconicfluff.jpg); background-size: cover; background-position: center'><h1>Fluke<br></h1></body>");
+            res.render('separateFur', {picture: "/img/iconicfluff.jpg"});
             return;
         case "4":
-            res.send("<body style='background-image: url(/img/peace.png); background-size: cover; background-position: center'><h1>Laura<br></h1></body>");
+            res.render('separateFur', {picture: "/img/peace.png"});
             return;
         case "5":
-            res.send("<body style='background-image: url(/img/sleepingGamer.jpg); background-size: cover; background-position: center'><h1>A Sleeping Laura<br></h1></body>");
+            res.render('separateFur', {picture: "/img/sleepingGamer.jpg"});
             return;
     }
 });
+
+app.get('/allFluffs', (req, res) => {
+    res.render('fluffs');
+});
+
+
+/*
+    TODO: Authorization Method.
+ */
+app.use('/admin', sessionValidation);
+app.get('/admin', async (req, res) => {
+    const curr = await getUser(req.session.username);
+    if (await isAuthorized(req.session.username)) {
+        const __users = await usrCollection.find().project({username: 1, password: 1, _id: 1, rank: 1}).toArray();
+        res.render("admin", {__restrictOption: false, curr: curr, users: __users});
+    } else {
+        res.status(403);
+        res.render("admin", {__restrictOption: true, curr: curr, users: []});
+    }
+})
+
+app.get('/admin/:options/:_id', async (req, res) => {
+    let id = req.params._id;
+    let modifyOption = req.params.options;
+    const filter = {_id: new ObjectId(id)};
+
+    if (modifyOption === "promote") {
+        await usrCollection.updateOne(filter, {$set: {rank: "admin"}});
+    } else if (modifyOption === "demote") {
+        await usrCollection.updateOne(filter, {$set: {rank: "user"}});
+    }
+    res.redirect('/admin');
+})
 
 /*
     TODO: Post Methods beyond this.
@@ -171,11 +166,10 @@ app.post('/logging-in', async (req, res) => {
         return;
     }
 
-    if (await bcrypt.compare(password, __users[0].password)) {
+    if (await bcrypt.compare(password,  __users[0].password)) {
         req.session.authenticated = true;
         req.session.username = username;
         req.session.cookie.maxAge = logOutWhen;
-        console.log("Cry");
         res.redirect('/main');
         return;
     }
@@ -186,32 +180,6 @@ app.post('/logging-in', async (req, res) => {
     }
 });
 
-app.get('/allFluffs', (req, res) => {
-    res.render('fluffs');
-})
-app.use('/admin', sessionValidation);
-app.get('/admin', async (req, res) => {
-        const curr = await getUser(req.session.username);
-        if (curr.rank === "admin") {
-            const __users = await usrCollection.find().project({username: 1, password: 1, _id: 1, rank: 1}).toArray();
-            res.render("admin", {__restrictOption: false, curr: curr, users: __users});
-        } else {
-            res.render("admin", {__restrictOption: true, curr: curr, users: []});
-        }
-})
-
-app.get('/admin/:options/:_id', async (req, res) => {
-    let id = req.params._id;
-    let modifyOption = req.params.options;
-    const filter = {_id: new ObjectId(id)};
-
-    if (modifyOption === "promote") {
-        await usrCollection.updateOne(filter, {$set: {rank: "admin"}});
-    } else if (modifyOption === "demote") {
-        await usrCollection.updateOne(filter, {$set: {rank: "user"}});
-    }
-    res.redirect('/admin');
-})
 /*
     TODO: Method on sign up.
  */
@@ -264,9 +232,8 @@ app.post('/loggingOut', async (req, res) => {
     TODO: Error 404.
  */
 app.get("*", (req, res) => {
-    // let html = fs.readFileSync("./app/404.html", "utf-8");
+    res.status(404);
     res.render('404');
-    // res.send(html);
 })
 
 /*
@@ -275,11 +242,3 @@ app.get("*", (req, res) => {
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
-
-function getUser(key) {
-    return usrCollection.findOne({username: key});
-}
-
-function getUser2(token) {
-    return usrCollection.findOne({_id: token});
-}

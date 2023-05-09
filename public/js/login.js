@@ -5,7 +5,7 @@ if (document.getElementById("signUp")) {
 }
 if (document.getElementById("login")) {
     document.getElementById("login").addEventListener("click", function () {
-        window.location.href = "/";
+        window.location.href = "main";
     });
 }
 

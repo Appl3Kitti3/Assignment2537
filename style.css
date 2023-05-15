@@ -11,12 +11,7 @@ input[type="checkbox"] {
 
 }
 
-
-/*label {*/
-/*    background-color: red;*/
-/*}*/
 .filter-box:hover {
-    /*color: blue;*/
     cursor: pointer;
     background-color: #d7e5ff;
 }

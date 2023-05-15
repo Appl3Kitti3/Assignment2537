@@ -1,30 +1,52 @@
 var pokemon = [];
-
+var showTypes = [];
 const numPerPage = 10;
 var numPages = 0;
 const numPageBtn = 5;
 const setup = async () => {
-    console.log("Setup is setup");
     // axios handles the jquery json ajax calls
     // so axios is better
     let response = await axios.get('https://pokeapi.co/api/v2/pokemon?offset=0&limit=810');
-    console.log(response.data.results);
-
+    const allTypes = await axios.get('https://pokeapi.co/api/v2/type');
+    // console.log();
+    // allTypes.data.results
+    const typesArray = allTypes.data.results.map((type) => type.name);
+    console.log(typesArray);
     pokemon = response.data.results;
     numPages = Math.ceil(pokemon.length / numPerPage);
-    console.log("number of pokemons per page: ", numPages);
+    // console.log("number of pokemons per page: ", numPages);
+
+    $('#typeBoxes').empty();
+
+    for (let i = 0; i < typesArray.length; i++) {
+        $('#typeBoxes').append(`
+            <input type="checkbox" class="types" filter="${typesArray[i]}">${typesArray[i]}</input>
+        `);
+    }
+
+    $('body').on('change', '.types', async function(e){
+        // console.log()
+        if ($(this).is(':checked'))
+            showTypes.push($(this).attr('filter'));
+            // console.log($(this).attr('filter'))
+        else
+            showTypes = showTypes.filter((item) => item !== $(this).attr('filter'));
+
+        // showPage()
+        console.log($('#title').attr('currentPage'));
+    });
 
     showPage(1);
 
     // modal
     $('body').on('click', '.pokiCard', async function(e) {
-        console.log(this);
+        // console.log(this);
         const pokemonName = $(this).attr('pokeName');
-        console.log("The name: ", pokemonName);
+        // console.log("The name: ", pokemonName);
         const res = await axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
-        console.log(res.data);
+        // console.log(res.data);
         const types = res.data.types.map((type) => type.type.name);
-        console.log("types", types);
+        console.log("types hold on", types);
 
         $('.modal-body').html(`
             <div class="">
@@ -54,7 +76,7 @@ const setup = async () => {
     // pagination
     $('body').on('click', '.pageBtn', async function(e) {
         const pageNum = parseInt($(this).attr('pageNum'));
-        console.log("pageNum", pageNum);
+        // console.log("pageNum", pageNum);
         showPage(pageNum);
     })
 
@@ -66,13 +88,13 @@ async function showPage(currPage) {
     if (currPage > numPages)
         currPage = numPages;
 
-    console.log("showPage ", currPage);
-    console.log("start ", (currPage-1)*numPerPage);
-    console.log("end ", ((currPage-1)*numPerPage) + numPerPage);
-    console.log("poki length ", pokemon.length);
-    console.log("showPage ", currPage);
+    $('#header').empty().append(
+        `<h1 id="title" currentPage="${currPage}">
+        Pokemon ~ Page ${currPage}
+        </h1>`
+    );
 
-    $('#title').empty().append(`Pokemon ~ Page ${currPage}`);
+
     $('#pokemon').empty(); // empty/delete the content (innerHTML)
     /*
         Experiment Error #1: If you do not put a closing tag for append, the jquery function would automatically
@@ -83,6 +105,10 @@ async function showPage(currPage) {
     for (let i = ((currPage-1)*numPerPage); i < (((currPage-1)*numPerPage) + numPerPage); i++) {
         let innerResponse = await axios.get(`${pokemon[i].url}`);
         let currPokemon = innerResponse.data;
+        console.log(currPokemon.types);
+        let containsArray2 = currPokemon.types.every(item => showTypes.includes(item));
+        console.log(containsArray2);
+        // if ()
         $('#pokemon').append(`
             <div class="pokiCard card text-center" pokeName=${currPokemon.name} style="width: 18rem;">
               <div class="card-body">
@@ -96,22 +122,46 @@ async function showPage(currPage) {
         // Appends this between the element tags.
         // newList.append(`<li>${pokemon[i].name}</li>`);
     }
-    $('#pagination').empty().append(`
-            <button type="button" class="btn btn-primary pageBtn" id="page1" pageNum="1" >1</button>
-        `);
+    $('#pagination').empty();
+    // .append(`
+    //         <button type="button" class="btn btn-primary pageBtn" id="page1" pageNum="1" >1</button>
+    //     `);
     let start = Math.max(1, currPage-Math.floor(numPageBtn/2));
     let end = Math.min(numPages, currPage+Math.floor(numPageBtn/2));
     const trueEnd = Math.ceil(pokemon.length/numPerPage);
-    for (let i = start + 1; i <= end; i++) {
-        if (i !== trueEnd)
+
+    if (currPage > 1) {
         $('#pagination').append(`
-            <button type="button" class="btn btn-primary pageBtn" id="page${i}" pageNum="${i}" >${i}</button>
+            <button type="button" class="btn btn-primary pageBtn" id="pagefirst" pageNum="1">First</button>
+        `)
+        $('#pagination').append(`
+            <button type="button" class="btn btn-primary pageBtn" id="pageprev" pageNum="${currPage-1}" >Prev</button>
+        `)
+    }
+    let active = "";
+    for (let i = start; i < end; i++) {
+        active = "";
+        // if (i !== trueEnd)
+        if (i == currPage)
+            active = "active";
+        $('#pagination').append(`
+            <button type="button" class="btn btn-primary pageBtn ${active}" id="page${i}" pageNum="${i}" >${i}</button>
+        `)
+    }
+    if (currPage == numPages)
+        active = "active";
+    if (currPage < numPages) {
+        $('#pagination').append(`
+            <button type="button" class="btn btn-primary pageBtn" id="pageprev" pageNum="${currPage+1}" >Next</button>
+        `)
+        $('#pagination').append(`
+            <button type="button" class="btn btn-primary pageBtn ${active}" id="pagelast" pageNum="${numPages}" >Last</button>
         `)
     }
 
-    $('#pagination').append(`
-            <button type="button" class="btn btn-primary pageBtn" id="page${trueEnd}" pageNum="${trueEnd}" >${trueEnd}</button>
-        `)
+    // $('#pagination').append(`
+    //         <button type="button" class="btn btn-primary pageBtn" id="page${trueEnd}" pageNum="${trueEnd}" >${trueEnd}</button>
+    //     `)
 }
 /*
     Once website is ready, call setup.

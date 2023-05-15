@@ -4,15 +4,33 @@ const numPerPage = 10;
 var numPages = 0;
 const numPageBtn = 5;
 let iI = 0;
+
+async function fetchPokemons(types) {
+    let response = await axios.get('https://pokeapi.co/api/v2/pokemon?offset=0&limit=810');
+    let tempPokes = response.data.results;
+    if (types.length == 0)
+        return tempPokes;
+
+    let filteredPokes = [];
+    for (let i = 0; i < tempPokes.length; i++) {
+        let pokeRes = await axios.get(`${tempPokes[i].url}`);
+        let currPoke = pokeRes.data;
+        let tempTypeArray = currPoke.types.map((item) => item.type.name);
+
+         if (types.every(item => tempTypeArray.includes(item))) {
+            filteredPokes.push(tempPokes[i]);
+        }
+    }
+    numPages = Math.ceil(filteredPokes.length / numPerPage);
+    return filteredPokes;
+}
 const setup = async () => {
     // axios handles the jquery json ajax calls
     // so axios is better
     let response = await axios.get('https://pokeapi.co/api/v2/pokemon?offset=0&limit=810');
     const allTypes = await axios.get('https://pokeapi.co/api/v2/type');
     console.log("Called once");
-    // allTypes.data.results
     const typesArray = allTypes.data.results.map((type) => type.name);
-    // console.log(typesArray);
     pokemon = response.data.results;
     numPages = Math.ceil(pokemon.length / numPerPage);
     // console.log("number of pokemons per page: ", numPages);
@@ -43,7 +61,7 @@ const setup = async () => {
         else
             showTypes = showTypes.filter((item) => item !== $(this).attr('filter'));
 
-        iI = 0;
+        pokemon = await fetchPokemons(showTypes);
         showPage(1);
         // console.log($('#title').attr('currentPage'));
     });
@@ -117,21 +135,16 @@ async function showPage(currPage) {
     let startII = ((currPage-1)*numPerPage);
     let endII = (((currPage-1)*numPerPage) + numPerPage);
     // iI;
-    let i = startII;
-    if (showTypes.length > 0) {
-        i = iI;
-    }
-    if (currPage > 1) {
-        endII+= 10;
-    }
-    while (i < endII) {
+    for (let i = startII; i < endII; i++) {
+        if (pokemon[i] == null)
+            break;
         let innerResponse = await axios.get(`${pokemon[i].url}`);
         let currPokemon = innerResponse.data;
         // console.log(currPokemon.types);
 
-        let containsArray2 = currPokemon.types.filter(item => showTypes.includes(item.type.name));
+        // let containsArray2 = currPokemon.types.filter(item => showTypes.includes(item.type.name));
         // console.log(currPokemon.types[1].type.name);
-        if (containsArray2.length == showTypes.length) {
+        // if (containsArray2.length == showTypes.length) {
 
                 $('#pokemon').append(`
                     <div class="pokiCard card text-center" pokeName=${currPokemon.name} style="width: 18rem;">
@@ -142,19 +155,8 @@ async function showPage(currPage) {
                       </div>
                     </div>
                 `);
-            i++;
-        } else {
-            endII++;
-            i++;
-            // iI++;
             // i++;
-            // endII++;
-            // console.log(endII);
-        }
-        if (showTypes.length > 0 && i == (endII - 1)) {
-            iI = i;
-            console.log(iI);
-        }
+        // }
 
         // Appends this between the element tags.
         // newList.append(`<li>${pokemon[i].name}</li>`);

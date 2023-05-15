@@ -8,8 +8,10 @@ let iI = 0;
 async function fetchPokemons(types) {
     let response = await axios.get('https://pokeapi.co/api/v2/pokemon?offset=0&limit=810');
     let tempPokes = response.data.results;
-    if (types.length == 0)
+    if (types.length == 0) {
+        numPages = Math.ceil(tempPokes.length / numPerPage);
         return tempPokes;
+    }
 
     let filteredPokes = [];
     for (let i = 0; i < tempPokes.length; i++) {
@@ -36,33 +38,42 @@ const setup = async () => {
     // console.log("number of pokemons per page: ", numPages);
 
     $('#typeBoxes').empty();
+    let ulExample = $('<div class="text-center row row-cols-5"></div>');
 
     for (let i = 0; i < typesArray.length; i++) {
-        $('#typeBoxes').append(`
-<label class="list-group-item">
-<!--    <input class="form-check-input me-1" type="checkbox" value="">-->
-<!--    First checkbox-->
-        <input type="checkbox" class="types form-check-input me-1" filter="${typesArray[i]}">${typesArray[i]}
-  </label>
-<!--            <input type="checkbox" class="btn-check " id="btn-check-2-outlined"  checked autocomplete="off">-->
-<!--            <label class="btn btn-outline-secondary" for="btn-check-2-outlined"></label><br>-->
-<!--            <input type="checkbox" class="btn-check types" id="btn-check-outlined" filter="${typesArray[i]}" autocomplete="off">-->
-<!--            <label class="btn btn-outline-primary" for="btn-check-outlined">${typesArray[i]}</label><br>-->
+        if ((i) % 5 == 0) {
+            $('#typeBoxes').append(ulExample);
+            ulExample = $('<div class="text-center row row-cols-5"></div>');
+        }
+        ulExample.append(`
+<!--        <li class="list-group-item col">-->
+        <label id="hi" class="col filter-box">${typesArray[i]}
+        <input type="checkbox" name="type" class="types" filter="${typesArray[i]}">
+        </label>
+<!--        </li>-->
         `);
     }
+    $('#typeBoxes').append(ulExample);
 
-    showPage(1);
+    await showPage(1);
 
     $('body').on('change', '.types', async function(e){
         // console.log()
-        if ($(this).is(':checked'))
+        if ($(this).is(':checked')) {
             showTypes.push($(this).attr('filter'));
-            // console.log($(this).attr('filter'))
-        else
+            // $(this).style.color = "red";
+            $(this).parent().css('color', '#6543ff');
+        }
+        else {
+            $(this).parent().css('color', 'black');
             showTypes = showTypes.filter((item) => item !== $(this).attr('filter'));
+        }
 
         pokemon = await fetchPokemons(showTypes);
-        showPage(1);
+        if (pokemon) {
+            console.log(numPages);
+            showPage(1);
+        }
         // console.log($('#title').attr('currentPage'));
     });
 
@@ -104,20 +115,24 @@ const setup = async () => {
 
     // pagination
     $('body').on('click', '.pageBtn', async function(e) {
-        const pageNum = parseInt($(this).attr('pageNum'));
-        // console.log("pageNum", pageNum);
-        showPage(pageNum);
+        let pageNum = parseInt($(this).attr('pageNum'));
+        if (pageNum < 1)
+            pageNum++
+        await showPage(pageNum);
     })
 
 }
 
 async function showPage(currPage) {
+    // console.log(currPage);
     if (currPage < 1) {
         currPage = 1;
     }
     if (currPage > numPages)
         currPage = numPages;
 
+    if (currPage == 0)
+        currPage = 1;
     $('#header').empty().append(
         `<h1 id="title" currentPage="${currPage}">
         Pokemon ~ Page ${currPage}
@@ -126,26 +141,28 @@ async function showPage(currPage) {
 
 
     $('#pokemon').empty(); // empty/delete the content (innerHTML)
+    $('#pokemon').append(`
+    <div id="show">
+        
+    </div>
+`);
     /*
         Experiment Error #1: If you do not put a closing tag for append, the jquery function would automatically
         close it and the other things that append it will not be inside that tag.
         COMP 2537 Week 3 2023 | 18:40 - 20:06
      */
     // let newList = $('<ol></ol>');
-    let startII = ((currPage-1)*numPerPage);
-    let endII = (((currPage-1)*numPerPage) + numPerPage);
+    let startII = Math.max(0, ((currPage-1)*numPerPage));
+    let endII = Math.max(10, (((currPage-1)*numPerPage) + numPerPage));
     // iI;
+    let displayQuant = 0;
     for (let i = startII; i < endII; i++) {
-        if (pokemon[i] == null)
+        if (pokemon[i] == null) {
+            // console.log(pokemon.length);
             break;
+        }
         let innerResponse = await axios.get(`${pokemon[i].url}`);
         let currPokemon = innerResponse.data;
-        // console.log(currPokemon.types);
-
-        // let containsArray2 = currPokemon.types.filter(item => showTypes.includes(item.type.name));
-        // console.log(currPokemon.types[1].type.name);
-        // if (containsArray2.length == showTypes.length) {
-
                 $('#pokemon').append(`
                     <div class="pokiCard card text-center" pokeName=${currPokemon.name} style="width: 18rem;">
                       <div class="card-body">
@@ -155,19 +172,20 @@ async function showPage(currPage) {
                       </div>
                     </div>
                 `);
+                displayQuant++;
             // i++;
         // }
 
         // Appends this between the element tags.
         // newList.append(`<li>${pokemon[i].name}</li>`);
     }
+    $('#show').append(`
+        <h1>Showing ${displayQuant} of ${pokemon.length} Pokemons</h1>
+    `)
     $('#pagination').empty();
-    // .append(`
-    //         <button type="button" class="btn btn-primary pageBtn" id="page1" pageNum="1" >1</button>
-    //     `);
+
     let start = Math.max(1, currPage-Math.floor(numPageBtn/2));
     let end = Math.min(numPages, currPage+Math.floor(numPageBtn/2));
-    const trueEnd = Math.ceil(pokemon.length/numPerPage);
 
     if (currPage > 1) {
         $('#pagination').append(`
@@ -178,7 +196,7 @@ async function showPage(currPage) {
         `)
     }
     let active = "";
-    for (let i = start; i < end; i++) {
+    for (let i = start; i <= end; i++) {
         active = "";
         // if (i !== trueEnd)
         if (i == currPage)

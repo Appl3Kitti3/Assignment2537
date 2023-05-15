@@ -5,3 +5,18 @@ main {
 ul {
     list-style: none;
 }
+
+input[type="checkbox"] {
+    visibility: hidden;
+
+}
+
+
+/*label {*/
+/*    background-color: red;*/
+/*}*/
+.filter-box:hover {
+    /*color: blue;*/
+    cursor: pointer;
+    background-color: #d7e5ff;
+}

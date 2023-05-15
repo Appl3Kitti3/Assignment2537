@@ -11,7 +11,7 @@ const setup = async () => {
     // console.log();
     // allTypes.data.results
     const typesArray = allTypes.data.results.map((type) => type.name);
-    console.log(typesArray);
+    // console.log(typesArray);
     pokemon = response.data.results;
     numPages = Math.ceil(pokemon.length / numPerPage);
     // console.log("number of pokemons per page: ", numPages);
@@ -32,8 +32,8 @@ const setup = async () => {
         else
             showTypes = showTypes.filter((item) => item !== $(this).attr('filter'));
 
-        // showPage()
-        console.log($('#title').attr('currentPage'));
+        showPage(1);
+        // console.log($('#title').attr('currentPage'));
     });
 
     showPage(1);
@@ -46,7 +46,7 @@ const setup = async () => {
         const res = await axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
         // console.log(res.data);
         const types = res.data.types.map((type) => type.type.name);
-        console.log("types hold on", types);
+        // console.log("types hold on", types);
 
         $('.modal-body').html(`
             <div class="">
@@ -102,22 +102,35 @@ async function showPage(currPage) {
         COMP 2537 Week 3 2023 | 18:40 - 20:06
      */
     // let newList = $('<ol></ol>');
-    for (let i = ((currPage-1)*numPerPage); i < (((currPage-1)*numPerPage) + numPerPage); i++) {
-        let innerResponse = await axios.get(`${pokemon[i].url}`);
+    let startII = ((currPage-1)*numPerPage);
+    let endII = (((currPage-1)*numPerPage) + numPerPage);
+    let iI = startII;
+    for (let i = startII; i < endII; ) {
+        let innerResponse = await axios.get(`${pokemon[iI].url}`);
         let currPokemon = innerResponse.data;
-        console.log(currPokemon.types);
-        let containsArray2 = currPokemon.types.every(item => showTypes.includes(item));
-        console.log(containsArray2);
-        // if ()
-        $('#pokemon').append(`
-            <div class="pokiCard card text-center" pokeName=${currPokemon.name} style="width: 18rem;">
-              <div class="card-body">
-                <h5 class="card-title">${currPokemon.name.toUpperCase()}</h5>
-              <img class="card-img-top" src="${currPokemon.sprites.front_default}" alt="${currPokemon.name}">
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#pokeModal">More</button>
-              </div>
-            </div>
-        `);
+        // console.log(currPokemon.types);
+
+        let containsArray2 = currPokemon.types.every(item =>         showTypes.includes(item.type.name));
+        // console.log(currPokemon.types[1].type.name);
+        // console.log(containsArray2);
+        if (containsArray2) {
+            $('#pokemon').append(`
+                <div class="pokiCard card text-center" pokeName=${currPokemon.name} style="width: 18rem;">
+                  <div class="card-body">
+                    <h5 class="card-title">${currPokemon.name.toUpperCase()}</h5>
+                  <img class="card-img-top" src="${currPokemon.sprites.front_default}" alt="${currPokemon.name}">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#pokeModal">More</button>
+                  </div>
+                </div>
+            `);
+            i++;
+            iI++;
+
+        } else {
+            iI++;
+            // endII++;
+            // console.log(endII);
+        }
 
         // Appends this between the element tags.
         // newList.append(`<li>${pokemon[i].name}</li>`);

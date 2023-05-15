@@ -3,12 +3,13 @@ var showTypes = [];
 const numPerPage = 10;
 var numPages = 0;
 const numPageBtn = 5;
+let iI = 0;
 const setup = async () => {
     // axios handles the jquery json ajax calls
     // so axios is better
     let response = await axios.get('https://pokeapi.co/api/v2/pokemon?offset=0&limit=810');
     const allTypes = await axios.get('https://pokeapi.co/api/v2/type');
-    // console.log();
+    console.log("Called once");
     // allTypes.data.results
     const typesArray = allTypes.data.results.map((type) => type.name);
     // console.log(typesArray);
@@ -20,9 +21,19 @@ const setup = async () => {
 
     for (let i = 0; i < typesArray.length; i++) {
         $('#typeBoxes').append(`
-            <input type="checkbox" class="types" filter="${typesArray[i]}">${typesArray[i]}</input>
+<label class="list-group-item">
+<!--    <input class="form-check-input me-1" type="checkbox" value="">-->
+<!--    First checkbox-->
+        <input type="checkbox" class="types form-check-input me-1" filter="${typesArray[i]}">${typesArray[i]}
+  </label>
+<!--            <input type="checkbox" class="btn-check " id="btn-check-2-outlined"  checked autocomplete="off">-->
+<!--            <label class="btn btn-outline-secondary" for="btn-check-2-outlined"></label><br>-->
+<!--            <input type="checkbox" class="btn-check types" id="btn-check-outlined" filter="${typesArray[i]}" autocomplete="off">-->
+<!--            <label class="btn btn-outline-primary" for="btn-check-outlined">${typesArray[i]}</label><br>-->
         `);
     }
+
+    showPage(1);
 
     $('body').on('change', '.types', async function(e){
         // console.log()
@@ -32,11 +43,11 @@ const setup = async () => {
         else
             showTypes = showTypes.filter((item) => item !== $(this).attr('filter'));
 
+        iI = 0;
         showPage(1);
         // console.log($('#title').attr('currentPage'));
     });
 
-    showPage(1);
 
     // modal
     $('body').on('click', '.pokiCard', async function(e) {
@@ -83,8 +94,9 @@ const setup = async () => {
 }
 
 async function showPage(currPage) {
-    if (currPage < 1)
+    if (currPage < 1) {
         currPage = 1;
+    }
     if (currPage > numPages)
         currPage = numPages;
 
@@ -104,32 +116,44 @@ async function showPage(currPage) {
     // let newList = $('<ol></ol>');
     let startII = ((currPage-1)*numPerPage);
     let endII = (((currPage-1)*numPerPage) + numPerPage);
-    let iI = startII;
-    for (let i = startII; i < endII; ) {
-        let innerResponse = await axios.get(`${pokemon[iI].url}`);
+    // iI;
+    let i = startII;
+    if (showTypes.length > 0) {
+        i = iI;
+    }
+    if (currPage > 1) {
+        endII+= 10;
+    }
+    while (i < endII) {
+        let innerResponse = await axios.get(`${pokemon[i].url}`);
         let currPokemon = innerResponse.data;
         // console.log(currPokemon.types);
 
-        let containsArray2 = currPokemon.types.every(item =>         showTypes.includes(item.type.name));
+        let containsArray2 = currPokemon.types.filter(item => showTypes.includes(item.type.name));
         // console.log(currPokemon.types[1].type.name);
-        // console.log(containsArray2);
-        if (containsArray2) {
-            $('#pokemon').append(`
-                <div class="pokiCard card text-center" pokeName=${currPokemon.name} style="width: 18rem;">
-                  <div class="card-body">
-                    <h5 class="card-title">${currPokemon.name.toUpperCase()}</h5>
-                  <img class="card-img-top" src="${currPokemon.sprites.front_default}" alt="${currPokemon.name}">
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#pokeModal">More</button>
-                  </div>
-                </div>
-            `);
-            i++;
-            iI++;
+        if (containsArray2.length == showTypes.length) {
 
+                $('#pokemon').append(`
+                    <div class="pokiCard card text-center" pokeName=${currPokemon.name} style="width: 18rem;">
+                      <div class="card-body">
+                        <h5 class="card-title">${currPokemon.name.toUpperCase()}</h5>
+                      <img class="card-img-top" src="${currPokemon.sprites.front_default}" alt="${currPokemon.name}">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#pokeModal">More</button>
+                      </div>
+                    </div>
+                `);
+            i++;
         } else {
-            iI++;
+            endII++;
+            i++;
+            // iI++;
+            // i++;
             // endII++;
             // console.log(endII);
+        }
+        if (showTypes.length > 0 && i == (endII - 1)) {
+            iI = i;
+            console.log(iI);
         }
 
         // Appends this between the element tags.

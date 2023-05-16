@@ -80,7 +80,7 @@ const setup = async () => {
 
         pokemon = await fetchAllPokemon(showTypes);
         if (pokemon) {
-            await showPage(1);
+            showPage(1);
         }
     });
 
@@ -119,7 +119,7 @@ const setup = async () => {
     // pagination
     bodyElement.on('click', '.pageBtn', async function() {
         let pageNum = parseInt($(this).attr('pageNum'));
-        await showPage(pageNum);
+        showPage(pageNum);
     })
 
 }

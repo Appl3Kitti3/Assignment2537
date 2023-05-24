@@ -183,6 +183,7 @@ const setup = async () => {
 
     /* Start and reset button! */
     document.getElementById("start").addEventListener('click', async function () {
+        lockBoard = false;
         clearInterval(x);
         clearInterval(y);
         await displayDifficulty(difficulty);
@@ -198,6 +199,7 @@ const setup = async () => {
     });
 
     document.getElementById("reset").addEventListener("click", function() {
+        lockBoard = false;
         clearInterval(x);
         clearInterval(y);
         memoryGame.empty();

@@ -1,227 +1,329 @@
-let pokemon = [];
-let showTypes = [];
-const numPerPage = 10;
-let numPages = 0;
-const numPageBtn = 5;
+let pokemon = [];           // Total list of Pokemon (Pokedex)
+const maxAmount = 810; // amount of Pokemon
+let difficulty = "Easy";
+let numberPokes = 0;
+let hasFlippedCard = false;
+let firstCard, secondCard;
+let lockBoard = false;
+let cards;
+let memoryGame = $('.memory-game');
+const rng = 9;
+let totalPairs = 0;
+let userFound = 0;
+let userClicks = 0;
+let currTime = 0;
 
-/**
- * Called upon a change on the filter buttons.
- *
- * @param selectedTypes selectedFilters
- * @returns {Promise<*|*[]>} List of all Pokémon when there are no filters active. Otherwise, returns
- * list of Pokémon with the desired types.
+let memoryCard;
+let x, y;
+
+/*
+    Get random pokemon!
  */
-async function fetchAllPokemon(selectedTypes) {
-    let response = await axios.get('https://pokeapi.co/api/v2/pokemon?offset=0&limit=810');
-    let tempPokes = response.data.results;
-    if (selectedTypes.length === 0) {
-        numPages = Math.ceil(tempPokes.length / numPerPage);
-        return tempPokes;
+async function fetchPokemon(amount) {
+    let pokes = [];
+    for (let i = 0; i < (amount); i++) {
+        let random = Math.floor(Math.random() * maxAmount);
+        if (pokes.includes(pokemon[random]))
+            i--;
+        else
+            pokes.push(pokemon[random]);
     }
 
-    let filteredPokes = [];
-    for (let i = 0; i < tempPokes.length; i++) {
-        let pokeRes = await axios.get(`${tempPokes[i].url}`);
-        let tempTypeArray = pokeRes.data.types.map((item) => item.type.name);
-
-         if (selectedTypes.every(item => tempTypeArray.includes(item))) {
-            filteredPokes.push(tempPokes[i]);
-        }
-    }
-    numPages = Math.ceil(filteredPokes.length / numPerPage);
-    return filteredPokes;
+    return pokes;
 }
 
-/**
- * Called upon when the website is ready.
- *
- * @returns {Promise<void>} nothing.
+/*
+    Generate a list of random Pokes and based on the difficulty, return the amount of pairs!
+ */
+async function displayDifficulty(id) {
+    let amount = 0;
+    switch (id) {
+        case "Easy":
+            amount = 6;
+            break;
+        case "Medium":
+            amount = 10;
+            break;
+        case "Hard":
+            amount = 16;
+            break;
+    }
+
+    totalPairs = amount;
+    numberPokes = amount * 2;
+    let entities = await fetchPokemon(amount);
+
+    memoryGame.empty();
+    for (let k = 0; k <= 1; k++) {
+        for (let i = 0; i < (entities.length); i++) {
+            let currPoke = (await axios.get(`${entities[i].url}`)).data;
+            memoryGame.append(`
+            <div class="memory-card" data-pokemon="${currPoke.name}">
+                    <img class="front-face" src="${currPoke.sprites.other['official-artwork'].front_default}" alt="front"/>
+                    <img class="back-face" src="back.png" alt="backCard"/>
+                </div>`);
+        }
+    }
+
+
+
+}
+
+/*
+    Called when a card is flipped!
+ */
+function flipCard() {
+    if (lockBoard) return;
+    if (this === firstCard) return;
+
+    /* Power up! */
+    let rngVal = Math.floor(Math.random() * 10);
+    if (rngVal === rng) {
+        powerUp();
+        return;
+    }
+
+    userClicks++;
+    this.classList.add('flipped');
+
+    if (!hasFlippedCard) {
+        // first clicked
+        hasFlippedCard = true;
+        firstCard = this;
+        return;
+    }
+
+    // second clicked
+    hasFlippedCard = false;
+    secondCard = this;
+
+    // check cards match
+    checkForMatch();
+
+}
+
+/*
+    Checks if both clicked cards are a match!
+ */
+function checkForMatch() {
+    return (firstCard.dataset.pokemon === secondCard.dataset.pokemon) ? disableCards() : unflipCards();
+}
+
+/*
+    Disable the found cards!
+ */
+function disableCards() {
+    userFound++;
+    firstCard.classList.add('found');
+    secondCard.classList.add('found');
+    firstCard.removeEventListener("click", flipCard);
+    secondCard.removeEventListener("click", flipCard);
+    resetBoard();
+}
+
+/*
+    Put cards back in hiding!
+ */
+function unflipCards() {
+    lockBoard = true;
+    setTimeout(() => {
+        firstCard.classList.remove("flipped");
+        secondCard.classList.remove("flipped");
+        resetBoard();
+    }, 1500);
+}
+
+/*
+    Return everything to the original state!
+ */
+function resetBoard() {
+    [hasFlippedCard, lockBoard] = [false, false];
+    [firstCard, secondCard] = [null, null];
+
+}
+
+/*
+    Shuffle the cards!
+ */
+function shuffle() {
+    cards.forEach(card => {
+        let randomPos = Math.floor(Math.random() * numberPokes);
+        card.style.order = randomPos;
+    });
+}
+
+
+/*
+    Assign difficulty!
+ */
+function assignDifficulty() {
+    difficulty = this.innerText;
+    $('#showDiff').empty().append(`
+    Difficulty: ${difficulty}
+    `);
+}
+
+/*
+    Called when document is ready!
  */
 const setup = async () => {
-    // axios handles the jquery json ajax calls
-    // so axios is better
 
-    // jquery elements:
-    let filterElement = $('#typeBoxes');
-    let bodyElement = $('body');
+    /* Initially set it to something! */
+    displayMode();
 
-    const typesArray = (await axios.get('https://pokeapi.co/api/v2/type')).data.results.map((type) => type.name);
     pokemon = (await axios.get('https://pokeapi.co/api/v2/pokemon?offset=0&limit=810')).data.results;
-    numPages = Math.ceil(pokemon.length / numPerPage);
+    $('#showDiff').empty().append(`
+    Difficulty: ${difficulty}
+    `);
+    let diffButtons = document.querySelectorAll(".diff");
+    diffButtons.forEach(btn => btn.addEventListener("change", assignDifficulty));
 
-    filterElement.empty();
-    let filterDiv = $('<div class="text-center row row-cols-5"></div>');
+    /* Light and Dark mode! */
+    document.querySelectorAll(".viewMode").forEach(radio => radio.addEventListener("change", displayMode))
 
-    for (let i = 0; i < typesArray.length; i++) {
-        if (i % 5 === 0) {
-            filterElement.append(filterDiv);
-            filterDiv = $('<div class="text-center row row-cols-5"></div>');
-        }
-        filterDiv.append(`
-        <label id="hi" class="col filter-box">${typesArray[i]}
-            <input type="checkbox" name="type" class="types" filter="${typesArray[i]}">
-        </label>
-        `);
-    }
+    /* Start and reset button! */
+    document.getElementById("start").addEventListener('click', async function () {
+        clearInterval(x);
+        clearInterval(y);
+        await displayDifficulty(difficulty);
+        cards = document.querySelectorAll(".memory-card");
+        userClicks = 0;
+        userFound = 0;
+        memoryCard = $('.memory-card');
+        organize();
+        getDisplay();
+        shuffle();
+        cards.forEach(card => card.addEventListener("click", flipCard));
 
-    filterElement.append(filterDiv);
-
-    await showPage(1);
-
-    bodyElement.on('change', '.types', async function(){
-        if ($(this).is(':checked')) {
-            showTypes.push($(this).attr('filter'));
-            $(this).parent().css('color', '#6543ff');
-        }
-        else {
-            $(this).parent().css('color', 'black');
-            showTypes = showTypes.filter((item) => item !== $(this).attr('filter'));
-        }
-
-        pokemon = await fetchAllPokemon(showTypes);
-        if (pokemon) {
-            showPage(1);
-        }
     });
 
-
-    // modal
-    bodyElement.on('click', '.pokiCard', async function() {
-        const pokemonName = $(this).attr('pokeName');
-        const res = await axios.get(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
-        const pokemonType = res.data.types.map((type) => type.type.name);
-
-        $('.modal-body').html(`
-            <div class="">
-                <img src="${res.data.sprites.other['official-artwork'].front_default}" alt="${pokemonName}">
-                <div class="card text-white bg-info mb-3">
-                    <div class="card-header">
-                        ${pokemonType.map((type) => `${type.toUpperCase()}`).join(' | ')}
-                    </div>
-                </div>
-                <div class="card text-white bg-danger mb-3">
-                    <div class="card-body">
-                        <div class="card-header">ABILITIES</div>
-                        <ul>${res.data.abilities.map((ability) => `<li>${ability.ability.name}</li>`).join('')}</ul>
-                    </div>
-                </div>
-                <div class="card text-white bg-success mb-3">
-                    <div class="card-body">
-                        <div class="card-header">STATS</div>
-                        <ul>${res.data.stats.map((stat) => `<li>${stat.stat.name.toUpperCase()}: ${stat.base_stat}</li>`).join('')}</ul>
-                    </div>
-                </div>
-            </div>
-        `)
-        $('.modal-title').html(`${res.data.name.toUpperCase()}`);
+    document.getElementById("reset").addEventListener("click", function() {
+        clearInterval(x);
+        clearInterval(y);
+        memoryGame.empty();
     })
-
-    // pagination
-    bodyElement.on('click', '.pageBtn', async function() {
-        let pageNum = parseInt($(this).attr('pageNum'));
-        showPage(pageNum);
-    })
-
 }
 
-async function showPage(currPage) {
-
-    if (currPage > numPages)
-        currPage = numPages;
-
-    if (currPage < 1)
-        currPage = 1;
-
-
-    // jquery elements:
-    let pokemonGroup = $('#pokemon');
-    let pagination = $('#pagination');
-    $('#header').empty().append(
-        `<h1 id="title" currentPage="${currPage}">
-        Pokemon ~ Page ${currPage}
-        </h1>`
-    );
-
-
-    pokemonGroup.empty(); // empty/delete the content (innerHTML)
-    pokemonGroup.append(`
-        <div id="show">
-            
-        </div>
-    `);
-    /*
-        note to self #1: If you do not put a closing tag for append, the jquery function would automatically
-        close it and the other things that append it will not be inside that tag.
-        COMP 2537 Week 3 2023 | 18:40 - 20:06
-     */
-    // let newList = $('<ol></ol>');
-    let startII = Math.max(0, ((currPage-1)*numPerPage));
-    let endII = Math.max(10, (((currPage-1)*numPerPage) + numPerPage));
-
-    let displayQuantity = 0;
-    for (let i = startII; i < endII; i++) {
-        if (pokemon[i] == null)
-            break;
-
-        let currPokemon = (await axios.get(`${pokemon[i].url}`)).data;
-        pokemonGroup.append(`
-            <div class="pokiCard card text-center" pokeName=${currPokemon.name} style="width: 18rem;">
-              <div class="card-body">
-                <h5 class="card-title">${currPokemon.name.toUpperCase()}</h5>
-              <img class="card-img-top" src="${currPokemon.sprites.front_default}" alt="${currPokemon.name}">
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#pokeModal">More</button>
-              </div>
-            </div>
-        `);
-        displayQuantity++;
-
-        // Appends this between the element tags.
-        // newList.append(`<li>${pokemon[i].name}</li>`);
-    }
-
-    /* Displays how many Pokémon are in the current page over total amount of Pokémon. */
-    $('#show').append(`
-        <h1>Showing ${displayQuantity} of ${pokemon.length} Pokemons</h1>
+/*
+    Power Up message and functionality!
+ */
+function powerUp() {
+    $('#powerUp').empty().append(`
+    <strong>Power Up!</strong>
     `)
+    cards.forEach(card => card.classList.add('flipped'));
+    setTimeout(() => {
+        cards.forEach(card => (card.classList.contains("found") ? null : card.classList.remove('flipped')));
+        resetBoard();
+        $('#powerUp').empty();
+    }, 1500);
+}
 
-    pagination.empty();
-
-    let start = Math.max(1, currPage-Math.floor(numPageBtn/2));
-    let end = Math.min(numPages, currPage+Math.floor(numPageBtn/2));
-
-    if (currPage > 1) {
-        pagination.append(`
-            <button type="button" class="btn btn-primary pageBtn" id="pageFirst" pageNum="1">First</button>
-        `)
-        pagination.append(`
-            <button type="button" class="btn btn-primary pageBtn" id="pageprev" pageNum="${currPage-1}" >Prev</button>
-        `)
-    }
-
-    let active = "";
-    for (let i = start; i <= end; i++) {
-        active = "";
-        if (i === currPage)
-            active = "active";
-        pagination.append(`
-            <button type="button" class="btn btn-primary pageBtn ${active}" id="page${i}" pageNum="${i}" >${i}</button>
-        `)
-    }
-
-    if (currPage === numPages)
-        active = "active";
-    if (currPage < numPages) {
-        pagination.append(`
-            <button type="button" class="btn btn-primary pageBtn" id="pageprev" pageNum="${currPage+1}" >Next</button>
-        `)
-        pagination.append(`
-            <button type="button" class="btn btn-primary pageBtn ${active}" id="pagelast" pageNum="${numPages}" >Last</button>
-        `)
+/*
+    Organize the frontend interface based on the difficulty! Because the # of cards shown makes the interface look weird!
+ */
+function organize() {
+    console.log(difficulty);
+    switch (difficulty) {
+        case "Easy":
+            memoryCard.width("calc(25% - 10px)");
+            memoryCard.height("calc(25% - 10px)");
+            break;
+        case "Medium":
+            memoryCard.width("calc(20% - 10px)");
+            memoryCard.height("calc(25% - 10px)");
+            break;
+        case "Hard":
+            memoryCard.width("calc(12% - 10px)");
+            memoryCard.height("calc(20% - 10px)");
+            break;
     }
 
 }
 
 /*
+    Based on the difficulty, get the time!
+ */
+function getNumeric() {
+    switch (difficulty) {
+        case "Easy":
+            return 150;
+        case "Medium":
+            return 250;
+        case "Hard":
+            return 450;
+    }
+}
+
+/*
+    The information about the game's current state, like total pairs, # of clicks. etc!
+ */
+function getDisplay() {
+    currTime = getNumeric();
+    let info = $('#displayInfo').empty();
+    x = setInterval(function () {
+        if (currTime >= 0)
+                currTime--;
+        }, 1000);
+    y = setInterval(function() {
+        let cardsLeft = totalPairs - userFound;
+        if (cardsLeft === 0) {
+            win();
+            clearInterval(x);
+            clearInterval(y);
+            lockBoard = true;
+        }
+        if (currTime <= 0) {
+            clearInterval(x);
+            clearInterval(y);
+            lockBoard = true;
+            alert("Time is Up!");
+            memoryGame.empty();
+            info.empty().append(`
+                Total Pairs: ${totalPairs}</br>
+                # of Matches: ${userFound}</br>
+                # of Pairs left: ${cardsLeft}</br>
+                # of Clicks: ${userClicks}</br>
+            `);
+        }
+         else {
+            info.empty().append(`
+                Total Pairs: ${totalPairs}</br>
+                # of Matches: ${userFound}</br>
+                # of Pairs left: ${cardsLeft}</br>
+                # of Clicks: ${userClicks}</br>
+                You have until ${Math.floor(currTime / 60)}:${((currTime % 60) <= 10) ? "0" + (currTime % 60) : (currTime % 60)}
+            `);
+        }
+
+    }, 1);
+
+}
+
+/*
+    Light and Dark mode!
+ */
+function displayMode() {
+    let mode = this.innerText;
+    let body = $('body');
+    if (mode === "Dark") {
+        body.css("color", "white");
+        body.css("background-color", "black");
+    } else {
+        body.css("color", "black");
+        body.css("background-color", "wheat");
+    }
+}
+
+/*
+    Called when the pairs left is 0!
+ */
+function win() {
+    memoryGame.empty();
+    memoryGame.append("<h2>You Won Congratulations!</h2>");
+}
+
+/*
     Once website is ready, call setup.
  */
-$(document).ready(setup);
+$(document).ready(setup());
